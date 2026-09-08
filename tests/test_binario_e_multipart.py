@@ -96,3 +96,16 @@ class TestRedirect:
     def test_segue_redirect_por_padrao(self):
         """Mídia do Chatwoot vem do Active Storage, que responde 302."""
         assert Request(method="GET", url="http://x").follow_redirects is True
+
+
+class TestUrlAbsoluta:
+    async def test_usa_url_absoluta_como_esta(self):
+        """Upstreams devolvem links prontos — anexos em storage, URLs assinadas."""
+        t = FakeTransport([raw(PNG)])
+        await client(t).get_bytes("https://storage.example/att/1?sig=abc")
+        assert t.requests[0].url == "https://storage.example/att/1?sig=abc"
+
+    async def test_path_relativo_continua_colando_na_base(self):
+        t = FakeTransport([ok("{}")])
+        await client(t).get("/x")
+        assert t.requests[0].url == "http://upstream/x"

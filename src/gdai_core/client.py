@@ -90,7 +90,7 @@ class ServiceClient:
         op = operation or f"{method} {path}"
         request = Request(
             method=method,
-            url=f"{self._base_url}/{path.lstrip('/')}",
+            url=self._url_for(path),
             headers=await self._headers(headers),
             json=json_body,
             params=params,
@@ -117,6 +117,18 @@ class ServiceClient:
 
         # The loop only falls through after exhausting retries, so `last` is set.
         raise last  # type: ignore[misc]
+
+    def _url_for(self, path: str) -> str:
+        """Resolve `path` contra a base, ou usa como está se já for absoluto.
+
+        URL absoluta acontece quando o próprio upstream a devolve — um anexo
+        servido por storage, um link assinado. Concatenar com a base ali geraria
+        lixo, e obrigar quem chama a manter um cliente httpx só para esse caso
+        é o que a lib existe para evitar.
+        """
+        if path.startswith(("http://", "https://")):
+            return path
+        return f"{self._base_url}/{path.lstrip('/')}"
 
     async def _headers(self, extra: Mapping[str, str] | None) -> dict[str, str]:
         headers = {context.HEADER: context.ensure()}
