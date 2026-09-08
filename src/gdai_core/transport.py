@@ -18,18 +18,32 @@ class Request:
     json: Any = None
     params: Mapping[str, Any] | None = None
     timeout: float = 10.0
+    # Corpo multipart. `files` são os arquivos, `data` os campos que os
+    # acompanham. Mutuamente exclusivo com `json`: httpx não envia os dois.
+    files: Mapping[str, Any] | None = None
+    data: Mapping[str, Any] | None = None
+    follow_redirects: bool = True
+
+    def __post_init__(self) -> None:
+        if self.json is not None and (self.files or self.data):
+            raise ValueError("a request carries either json or a multipart body")
 
 
 @dataclass(frozen=True)
 class RawResponse:
     status: int
     headers: Mapping[str, str]
-    text: str
+    content: bytes
+
+    @property
+    def text(self) -> str:
+        """Corpo decodificado. Só faz sentido em resposta textual."""
+        return self.content.decode("utf-8", errors="replace")
 
     def json(self) -> Any:
         import json
 
-        return json.loads(self.text)
+        return json.loads(self.content)
 
 
 class Transport(Protocol):
@@ -46,13 +60,17 @@ class HttpxTransport:
         self._owned = client is None
 
     async def send(self, request: Request) -> RawResponse:
-        client = self._client or httpx.AsyncClient()
+        client = self._client or httpx.AsyncClient(
+            follow_redirects=request.follow_redirects
+        )
         try:
             response = await client.request(
                 request.method,
                 request.url,
                 headers=dict(request.headers),
                 json=request.json,
+                files=dict(request.files) if request.files else None,
+                data=dict(request.data) if request.data else None,
                 params=dict(request.params) if request.params else None,
                 timeout=request.timeout,
             )
@@ -63,5 +81,5 @@ class HttpxTransport:
         return RawResponse(
             status=response.status_code,
             headers=dict(response.headers),
-            text=response.text,
+            content=response.content,
         )

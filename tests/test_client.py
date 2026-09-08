@@ -149,7 +149,7 @@ async def test_operation_name_reaches_the_error():
 
 
 async def test_empty_body_is_not_a_contract_error():
-    c = client(FakeTransport([RawResponse(status=204, headers={}, text="")]))
+    c = client(FakeTransport([RawResponse(status=204, headers={}, content=b"")]))
     r = await c.delete("/x")
     assert r.status == 204
     assert r.body is None

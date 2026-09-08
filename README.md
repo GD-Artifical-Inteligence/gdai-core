@@ -39,6 +39,18 @@ response = await client.get("/companies/internal/abc/billing")
 Errors propagate. There is no `default=None` and no `or []`: degrading is
 written at the call site by whoever accepts it.
 
+Media and attachments do not go through JSON:
+
+```python
+media = await client.get_bytes("/attachments/1")   # media.content is bytes
+await client.post("/upload", files={"image": ("photo.png", media.content, "image/png")})
+```
+
+`get_bytes` skips JSON parsing entirely — a `get` on an image would raise
+`ServiceContractError`, correctly, because the body is not JSON. `Response.content`
+carries the raw bytes on every response, so a caller that wants both does not
+need a second response type.
+
 ```python
 try:
     settings = await lq.get_billing_settings(company_id)
@@ -73,7 +85,7 @@ enters the image.
 - uses: actions/checkout@v4
   with:
     repository: GD-Artifical-Inteligence/gdai-core
-    ref: v0.1.0        # never main
+    ref: v0.2.0        # never main
     path: gdai-core
 ```
 

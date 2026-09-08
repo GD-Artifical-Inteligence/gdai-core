@@ -23,4 +23,4 @@ class FakeTransport:
 
 
 def ok(body: str = '{"ok": true}', status: int = 200) -> RawResponse:
-    return RawResponse(status=status, headers={}, text=body)
+    return RawResponse(status=status, headers={}, content=body.encode("utf-8"))
