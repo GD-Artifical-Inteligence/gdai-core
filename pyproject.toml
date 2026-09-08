@@ -1,6 +1,6 @@
 [project]
 name = "gdai-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Cross-cutting mechanics shared by GD.AI services: HTTP client, error taxonomy, logging, health and settings."
 requires-python = ">=3.12"
 dependencies = [

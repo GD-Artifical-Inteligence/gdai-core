@@ -65,6 +65,15 @@ class ServiceClient:
     async def delete(self, path: str, **kwargs: Any) -> Response:
         return await self.request("DELETE", path, **kwargs)
 
+    async def get_bytes(self, path: str, **kwargs: Any) -> Response:
+        """GET que devolve o corpo cru, sem tentar parsear JSON.
+
+        Para mídia e anexos: `Response.content` traz os bytes e `body` fica
+        None. Sem isto, baixar uma imagem levantaria `ServiceContractError`,
+        porque o corpo legitimamente não é JSON.
+        """
+        return await self.request("GET", path, parse_json=False, **kwargs)
+
     async def request(
         self,
         method: str,
@@ -74,6 +83,9 @@ class ServiceClient:
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         operation: str | None = None,
+        files: Mapping[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
+        parse_json: bool = True,
     ) -> Response:
         op = operation or f"{method} {path}"
         request = Request(
@@ -83,6 +95,8 @@ class ServiceClient:
             json=json_body,
             params=params,
             timeout=self._policy.timeout,
+            files=files,
+            data=data,
         )
 
         last: Exception | None = None
@@ -97,7 +111,7 @@ class ServiceClient:
                 if self._retryable_status(raw.status, attempt):
                     last = self._response_error(raw, op)
                 else:
-                    return self._to_response(raw, op)
+                    return self._to_response(raw, op, parse_json)
 
             await asyncio.sleep(self._policy.delay_for(attempt))
 
@@ -149,19 +163,26 @@ class ServiceClient:
             body=raw.text,
         )
 
-    def _to_response(self, raw: RawResponse, operation: str) -> Response:
+    def _to_response(
+        self, raw: RawResponse, operation: str, parse_json: bool = True
+    ) -> Response:
         if raw.status >= 400:
             raise self._response_error(raw, operation)
 
         body: Any = None
-        if raw.text:
+        if parse_json and raw.content:
             try:
                 body = raw.json()
-            except (json.JSONDecodeError, ValueError) as exc:
+            except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as exc:
                 raise ServiceContractError(
                     service=self._service,
                     operation=operation,
                     message=f"response body is not valid JSON: {exc}",
                 ) from exc
 
-        return Response(status=raw.status, body=body, headers=raw.headers)
+        return Response(
+            status=raw.status,
+            body=body,
+            headers=raw.headers,
+            content=raw.content,
+        )
