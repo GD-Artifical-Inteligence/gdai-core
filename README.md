@@ -5,21 +5,16 @@ correlation id, logging, health and settings.
 
 Design and rationale: [lq-api#115](https://github.com/GD-Artifical-Inteligence/lq-api/issues/115).
 
-## What it is for
+## Two rules it exists to enforce
 
-Before this package there were nine hand-rolled service clients, each with its
-own idea of how long to wait and what to do when a call failed. One of them had
-six `except Exception` blocks in 182 lines. The recurring bug that came out of
-that shape: a caught failure becomes a neutral value, and the caller cannot tell
-"no data" from "the call failed" — see the `owner_id` case in
-[lq-api#111](https://github.com/GD-Artifical-Inteligence/lq-api/issues/111).
-
-Two rules close that hole by construction:
-
-- **`RequestPolicy.timeout` has no default.** A client cannot be built without
-  choosing how long to wait.
+- **`RequestPolicy.timeout` has no default.** A client cannot be constructed
+  without choosing how long to wait.
 - **`ServiceError` is abstract.** Raising it is a `TypeError`, so every failure
   has to say what it was.
+
+Both close the same hole: a caught failure becoming a neutral value, so the
+caller cannot tell "no data" from "the call failed". The two lead to opposite
+decisions, so they must not share a return value.
 
 ## Usage
 
